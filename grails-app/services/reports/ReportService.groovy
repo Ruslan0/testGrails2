@@ -19,7 +19,7 @@ class ReportService {
         return Report.executeQuery("from Report", [offset: offset, max: max])
     }
 
-    Report getReport(int id) {
+    Report getReport(Long id) {
         Report report = Report.get(id)
         return report
     }
@@ -33,7 +33,7 @@ class ReportService {
         return Report.executeQuery(strquery, [login: login, projectName: projectName])
     }
 
-    boolean validateNewReport(Report reportInstance) {
+    boolean validateReport(Report reportInstance) {
         boolean result = reportInstance.validate();
         if (result) {
             def prevhours = Report.withCriteria {
@@ -46,12 +46,15 @@ class ReportService {
                 and {
                     eq("assigned", reportInstance.assigned)
                 }
-
+                and {
+                    ne("id", reportInstance.id?:(Long)0)
+                }
             }
             int allhours = reportInstance.hours
             if (prevhours[0])
                 allhours += prevhours[0]
             if (allhours > 24) {
+                reportInstance.hours=24-prevhours[0]
                 result = false
                 reportInstance.errors.reject('hours', 'The number of hours for this day can not exceed 24')
             }
@@ -59,9 +62,9 @@ class ReportService {
         return result
     }
 
-    int add(Report reportInstance) {
+    int save(Report reportInstance) {
         int status
-        if (validateNewReport(reportInstance)) {
+        if (validateReport(reportInstance)) {
             if (reportInstance.save())
                 status = 201
             else
@@ -71,4 +74,20 @@ class ReportService {
         }
         return status
     }
+
+    int delete(Long id){
+        int status
+        Report reportInstance = getReport(id)
+        if (!reportInstance)
+            status = 404
+        else {
+            reportInstance.delete()
+            if (Report.get(id))
+                status = 409
+            else
+                status = 201
+        }
+        return status
+    }
+
 }

@@ -11,7 +11,7 @@ class Report {
 
     static constraints = {
         currdate blank: false
-        hours blank: false, max: 24
+        hours blank: false, max: 24, min: 0
         note blank: false, maxSize: 512
     }
 }
