@@ -7,7 +7,7 @@ class Report {
     Date currdate
     Integer hours
     String note
-    static belongsTo = [assigned: Assigned]
+    Assigned assigned
 
     static constraints = {
         currdate blank: false

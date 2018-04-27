@@ -1,5 +1,6 @@
 package reports
 
 class Assigned {
-    static belongsTo = [project: Project, employer: Employer]
+    Employer employer
+    Project project
 }
