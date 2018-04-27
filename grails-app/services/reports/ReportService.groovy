@@ -1,5 +1,16 @@
 package reports
 
+import grails.converters.JSON
+import grails.validation.Validateable
+import org.codehaus.groovy.grails.web.converters.exceptions.ConverterException
+import org.codehaus.groovy.grails.web.json.JSONObject
+import org.springframework.http.HttpRequest
+
+import javax.servlet.http.HttpServletRequest
+import java.text.ParseException
+import java.text.SimpleDateFormat
+
+@Validateable
 class ReportService {
 
     String getMessageFailedData(def reportInstance) {
@@ -10,18 +21,13 @@ class ReportService {
         return str.toString()
     }
 
-    List<Project> getProjects(Integer max, Integer offset) {
-        return Project.executeQuery("from Project", [offset: offset, max: max])
-    }
-
 
     List<Report> getReports(Integer max, Integer offset) {
         return Report.executeQuery("from Report", [offset: offset, max: max])
     }
 
     Report getReport(Long id) {
-        Report report = Report.get(id)
-        return report
+        return Report.get(id)
     }
 
     List<Report> getReportByLogin(String login) {
@@ -29,42 +35,13 @@ class ReportService {
     }
 
     List<Report> getReportByParams(String login, String projectName) {
-        final String strquery = "from Report r where assigned.employer.login = :login and assigned.project.name = :projectName"
-        return Report.executeQuery(strquery, [login: login, projectName: projectName])
-    }
-
-    boolean validateReport(Report reportInstance) {
-        boolean result = reportInstance.validate();
-        if (result) {
-            def prevhours = Report.withCriteria {
-                projections {
-                    sum('hours')
-                }
-                and {
-                    eq("currdate", reportInstance.currdate)
-                }
-                and {
-                    eq("assigned", reportInstance.assigned)
-                }
-                and {
-                    ne("id", reportInstance.id?:(Long)0)
-                }
-            }
-            int allhours = reportInstance.hours
-            if (prevhours[0])
-                allhours += prevhours[0]
-            if (allhours > 24) {
-                reportInstance.hours=24-prevhours[0]
-                result = false
-                reportInstance.errors.reject('hours', 'The number of hours for this day can not exceed 24')
-            }
-        }
-        return result
+        return Report.executeQuery("from Report r where assigned.employer.login = :login and assigned.project.name = :projectName",
+                [login: login, projectName: projectName])
     }
 
     int save(Report reportInstance) {
         int status
-        if (validateReport(reportInstance)) {
+        if (reportInstance.validate()) {
             if (reportInstance.save())
                 status = 201
             else
@@ -75,7 +52,60 @@ class ReportService {
         return status
     }
 
-    int delete(Long id){
+    boolean isValidDate(String inDate) {
+        SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy")
+        dateFormat.setLenient(false)
+        try {
+            dateFormat.parse(inDate.trim())
+        } catch (ParseException pe) {
+            return false
+        }
+        return true
+    }
+
+    boolean valdateJson(String jsonText) {
+        JSONObject jsonParams
+        try {
+            jsonParams = JSON.parse(jsonText)
+        }
+        catch (ConverterException e) {
+            return false
+        }
+        return jsonParams.has("currdate") & jsonParams.has("hours") & jsonParams.has("note") & jsonParams.has("login") & jsonParams.has("projectname")
+    }
+
+    def save(String jsonText) {
+
+        if (!valdateJson(jsonText))
+            return 415
+
+        JSONObject jsonParams = JSON.parse(jsonText)
+
+        if (!isValidDate(jsonParams.currdate))
+            return 412
+        def currdate = new Date().parse('dd.MM.yyyy', jsonParams.currdate)
+
+        List<Assigned> assignedList = Assigned.executeQuery("from Assigned where employer.login = :login and project.name = :projectName",
+                [login: jsonParams.login, projectName: jsonParams.projectname])
+        if (!assignedList || assignedList.size() != 1) {
+            return 412
+        } else {
+            if (jsonParams.has("id")) {
+                Report reportInstance = getReport(jsonParams.id)
+                if (reportInstance) {
+                    reportInstance.hours = jsonParams.hours
+                    reportInstance.note = jsonParams.note
+                    reportInstance.currdate = currdate
+                    reportInstance.assigned = assignedList.get(0)
+                    return save(reportInstance)
+                } else
+                    return 404
+            } else
+                return save(new Report(currdate: currdate, hours: jsonParams.hours, note: jsonParams.note, assigned: assignedList.get(0)))
+        }
+    }
+
+    int delete(Long id) {
         int status
         Report reportInstance = getReport(id)
         if (!reportInstance)

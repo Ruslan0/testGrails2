@@ -5,39 +5,31 @@ class ReportController {
     static allowedMethods = [add: "POST", update: "PUT", getReports: "GET", getReport: "GET", getProjects: "GET", getReportByLogin: "GET", getReportByParams: "GET"]
 
     def reportService
+    def projectService
+
     def maxDefault = 100
     def offsetDefault = 0
 
-    def getReports(Integer max, Integer offset, String format) {
-        def reportLiat = reportService.getReports(max ?: maxDefault, offset ?: offsetDefault)
-        if (format)
-            respond reportLiat, [formats: [format]]
-        else {
-            flash.clear()
-            render(view: "/report/index", model: [reports: reportLiat])
-        }
+    def getReports(Integer max, Integer offset) {
+        def reportList = reportService.getReports(max ?: maxDefault, offset ?: offsetDefault)
+        render(view: "/report/index", model: [reports: reportList])
     }
 
     def getProjects(Integer max, Integer offset) {
-        respond reportService.getProjects(max ?: maxDefault, offset ?: offsetDefault)
+        respond projectService.getProjects(max ?: maxDefault, offset ?: offsetDefault)
     }
 
-    def getReport(Integer id, String format) {
+    def getReport(Integer id) {
         def reportInstance = reportService.getReport(id)
-        if (format)
-            respond reportInstance, [formats: [format]]
-        else {
-            flash.clear()
-            render(view: "/report/show", model: [reportInstance: reportInstance])
-        }
+        render(view: "/report/show", model: [reportInstance: reportInstance])
     }
 
     def getReportByParams(String login, String projectName) {
         if (projectName && login)
             respond reportService.getReportByParams(login, projectName)
-        else if (login)
+        else if (login && !projectName)
             respond reportService.getReportByLogin(login)
-        else if (!projectName && login)
+        else if (!projectName && !login)
             respond reportService.getReports(maxDefault, offsetDefault)
     }
 
@@ -45,16 +37,23 @@ class ReportController {
         def resStatus = reportService.save(reportInstance)
         switch (resStatus) {
             case 400:
-                flash.message = 'The request was well-formed but was unable to be followed due to semantic errors'
-                render ([reportInstance: reportInstance, success: false, error: message(error: reportService.getMessageFailedData(reportInstance))])
+                flash.error = reportService.getMessageFailedData(reportInstance)
+                render(view: "/report/show", model: [reportInstance: reportInstance])
+                break
+            case 404:
+                flash.error =  message(code: 'report.invalid,save.form.notfound', args: [reportInstance.id])
+                render(view: "/report/show", model: [reportInstance: reportInstance])
                 break
             case 409:
-                flash.message = 'The request could not be completed due to a conflict with the current state of the target resource.'
-                render ([success: false, error: message(error: reportService.getMessageFailedData(reportInstance))])
+                flash.error = message(code: 'report.invalid,save.conflict', default: 'Resources conflict')
+                render(view: "/report/show", model: [reportInstance: reportInstance])
                 break
+            case 412:
+                flash.error = message(code: 'report.invalid,save.precondition', default: 'Precondition Failed')
+                render(view: "/report/show", model: [reportInstance: reportInstance])
             case 201:
                 flash.message = message(code: 'default.created.message', args: [message(code: 'reportInstance.label', default: 'Report'), reportInstance.id])
-                render(view: "/report/show", model: [reportInstance: reportInstance])
+                redirect(action: "getReport", id: reportInstance.id)
                 break
         }
     }
@@ -63,18 +62,17 @@ class ReportController {
         def resStatus = reportService.delete(id)
         switch (resStatus) {
             case 404:
-                flash.message = 'The request was well-formed but was unable to be followed due to semantic errors'
-                render ([success: false, error: message(error: "Resource not found (id = "+id+")")])
+                flash.error =  message(code: 'report.invalid,save.form.notfound', args: [id])
                 break
             case 409:
-                flash.message = 'The request could not be completed due to a conflict with the current state of the target resource.'
-                render ([success: false, error: message(error: "the record with id "+id+"could not be deleted ")])
+                flash.error = message(code: 'report.invalid,detete', args: [id])
                 break
             case 201:
-                getReports()
                 flash.message = message(code: 'default.deleted.message', args: [message(code: 'reportInstance.label', default: 'Report'), id])
                 break
         }
+        redirect(action: "getReports")
+
     }
 
     def add(Report reportInstance) {

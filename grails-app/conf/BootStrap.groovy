@@ -1,10 +1,23 @@
+import grails.converters.JSON
+import org.codehaus.groovy.grails.web.converters.marshaller.xml.DomainClassMarshaller
 import reports.Assigned
 import reports.Employer
 import reports.Project
+import reports.Report
 
 class BootStrap {
 
     def init = { servletContext ->
+        JSON.registerObjectMarshaller(Report, {
+            def output = [:]
+            output["currdate"] =  it.currdate.format("dd.MM.yyyy")
+            output["hours"] = it.hours
+            output["note"] = it.note
+            output["projectname"] = it.assigned.project.name
+            output["login"] = it.assigned.employer.login
+            return output
+        })
+
         Project project1 = new Project(name: 'Test1')
         Project project2 = new Project(name: 'Test2')
 

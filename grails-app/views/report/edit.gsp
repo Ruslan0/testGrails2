@@ -19,13 +19,10 @@
 			<g:if test="${flash.message}">
 			<div class="message" role="status">${flash.message}</div>
 			</g:if>
-			<g:hasErrors bean="${reportInstance}">
-			<ul class="errors" role="alert">
-				<g:eachError bean="${reportInstance}" var="error">
-				<li <g:if test="${error in org.springframework.validation.FieldError}">data-field-id="${error.field}"</g:if>><g:message error="${error}"/></li>
-				</g:eachError>
-			</ul>
-			</g:hasErrors>
+			<g:if test="${flash.error}">
+				<div class="errors">${flash.error}</div>
+			</g:if>
+
 			<g:form url="[resource:reportInstance, action:'update']" method="PUT" >
 				<g:hiddenField name="version" value="${reportInstance?.version}" />
 				<fieldset class="form">

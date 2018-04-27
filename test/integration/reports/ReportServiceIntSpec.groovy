@@ -8,6 +8,7 @@ import spock.lang.Specification
 class ReportServiceIntSpec extends Specification {
 
     def reportService
+    def projectService
 
     Assigned assigned1
     Assigned assigned2
@@ -34,9 +35,9 @@ class ReportServiceIntSpec extends Specification {
     void "The test to add reports with properly params and filter ones"() {
 
         when: "The add is executed"
-        reportService.add(new Report(assigned: assigned1, currdate: "01.01.2012", hours: 2, note: "Research"))
-        reportService.add(new Report(assigned: assigned2, currdate: "01.01.2012", hours: 2, note: "Research"))
-        reportService.add(new Report(assigned: assigned3, currdate: "01.01.2012", hours: 2, note: "Research"))
+        reportService.save(new Report(assigned: assigned1, currdate: "01.01.2012", hours: 2, note: "Research"))
+        reportService.save(new Report(assigned: assigned2, currdate: "01.01.2012", hours: 2, note: "Research"))
+        reportService.save(new Report(assigned: assigned3, currdate: "01.01.2012", hours: 2, note: "Research"))
         then: "The all reports were added"
         Report.count() == 3
         then: "The first report return properly value"
@@ -47,26 +48,80 @@ class ReportServiceIntSpec extends Specification {
         then: "reports are found with appropriate login"
         reports.size() == 2
         when: "service is called to search by params"
-        reports = reportService.getReportByParams("user1","Project2")
+        reports = reportService.getReportByParams("user1", "Project2")
         then: "reports are found with appropriate params"
         reports.size() == 1
     }
 
     void "Test to add report with not existing assigned"() {
         when: "The add is executed"
-        reportService.add(new Report(assigned: 10, currdate: "01.01.2012", hours: 2, note: "Research"))
+        reportService.save(new Report(assigned: 10, currdate: "01.01.2012", hours: 2, note: "Research"))
         then: "The report hasn't been added "
         Report.count() == 0
     }
 
     void "Test to add reports for validate"() {
         when: "The add is executed"
-        reportService.add(new Report(assigned: assigned1, currdate: "01.01.2012", hours: 15, note: "Research"))
-        reportService.add(new Report(assigned: assigned1, currdate: "01.01.2012", hours: 8, note: "Research"))
-        reportService.add(new Report(assigned: assigned1, currdate: "01.01.2012", hours: 4, note: "Research"))
-        reportService.add(new Report(assigned: assigned1, currdate: "01-01-2012", hours: 2, note: "Research"))
+        reportService.save(new Report(assigned: assigned1, currdate: "01.01.2012", hours: 15, note: "Research"))
+        reportService.save(new Report(assigned: assigned1, currdate: "01.01.2012", hours: 8, note: "Research"))
+        reportService.save(new Report(assigned: assigned1, currdate: "01.01.2012", hours: 4, note: "Research"))
+        reportService.save(new Report(assigned: assigned1, currdate: "01-01-2012", hours: 2, note: "Research"))
         then: "Some reports were't been added: (repoort 3: 23 hours + 4 hours > 24; repoort 4 wrong date format)"
         Report.count() == 2
     }
 
+    void "Test to add report with the appropriate login and projectNAme"() {
+        given:
+        String jsonObject = '{"currdate": "24.04.2018", "hours": 8, "note": "www", "projectname": "Test1", "login": "admin"}'
+        when: "The add is executed"
+        int status = reportService.save(jsonObject)
+        then: "The report hasn't been added "
+        status == 201
+    }
+
+    void "Test to add report with the not appropriate login and projectNAme"() {
+        given:
+        String jsonObject = '{"currdate": "24.04.2018", "hours": 8, "note": "www", "projectname": "Test3", "login": "admin"}'
+        when: "The add is executed"
+        int status = reportService.save(jsonObject)
+        then: "The report hasn't been added "
+        status == 412
+    }
+
+    void "Test to add report with the wrong format of currdate"() {
+        given:
+        String jsonObject = '{"currdate": "24-04-2018", "hours": 8, "note": "www", "projectname": "Test3", "login": "admin"}'
+        when: "The add is executed"
+        int status = reportService.save(jsonObject)
+        then: "The report hasn't been added "
+        status == 412
+    }
+
+    void "Test to add report with the wrong json format "() {
+        given:
+        String jsonObject = 'poipoi{"currdate": "24-04-2018", "hours": 8, "note": "www", "projectname": "Test3", "login": "admin"}'
+        when: "The add is executed"
+        int status = reportService.save(jsonObject)
+        then: "The report hasn't been added "
+        status == 415
+    }
+
+    void "Test to add report with the wrong convert json format "() {
+        given:
+        String jsonObject = '{"currdate: "24-04-2018", "hours": 8, "note": "www", "projectname": "Test3", "login": "admin"}'
+        when: "The add is executed"
+        int status = reportService.save(jsonObject)
+        then: "The report hasn't been added "
+        status == 415
+    }
+
+
+     void "Test to add report with the not approriate json format "() {
+        given:
+        String jsonObject = '{"currdate2": "24-04-2018", "hours": 8, "note": "www", "projectname": "Test3", "login": "admin"}'
+        when: "The add is executed"
+        int status = reportService.save(jsonObject)
+        then: "The report hasn't been added "
+        status == 415
+    }
 }
